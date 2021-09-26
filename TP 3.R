@@ -4,18 +4,17 @@
 # Primero vamos a cargar las librerias necesarias para realizar el trabajo. En primer lugar vamos a cargars tidyverse y luego para este caso puntual sera necesario que instalaemos y carguemos rvest.
 # En este TP puntualmente necesitaremos SF 
 
-#install.packages("tidyverse")
+
 library(tidyverse) # Easily Install and Load the 'Tidyverse' 
-#install.packages(sf)
 library(sf) # Simple Features for R 
-#install.packages(datos)
 library(datos) # Traduce al Español Varios Conjuntos de Datos de Práctica 
-#install.packages(janitor)
 library(janitor) # Simple Tools for Examining and Cleaning Dirty Data 
-#install.packages(zip)
 library(zip) # Cross-Platform 'zip' Compression 
-#install.packages(skimr)
 library(skimr) # Compact and Flexible Summaries of Data 
+library(leaflet)
+library(lwgeom)
+library(ggmap)
+library(osmdata)
 
 #Tambien configurames de antemano para que no hayan notaciones cientificas
 options(scipen = 999) 
@@ -31,9 +30,41 @@ datos <- read.csv("PCT2_CiudadFvsCInformal", encoding = "ASCII")
 skim(datos)
 
 
+# Como vamos a querer volcar la informacion en mapas de la ciudad, dejamos cargada la base de datos del Gobierno de la ciudad con los barrios de CABA
+barrios <- read_sf("https://cdn.buenosaires.gob.ar/datosabiertos/datasets/barrios/barrios.geojson")
+
+# Vemos su estructura
+skim(barrios)
+
+barrios
+
+# Antes de empezar a trabjar con los datos, ordenamos ambas bases para poder unirlas
+
+# Primero acomodamos algunas cosas para poder hacer la union
+# Como las vamos a unir por los barrios necesitamos que esten escritos de igual manera.
+
+# Las modificaciones las haremos sobre nuestra base Datos, ya que no tiene todos los barrios y es esta con la que nos interesa trabajar
+# Hacemos que estos figuren en mayuscula
+datos_ok <- datos %>% 
+  mutate( Barrio = toupper(Barrio))
+
+#Tambien detectamos que hay dos barrios que en nuestro dataset figuran con un articulo que no tienen en el dataset del GCBA
+datos_ok2 <- datos_ok %>% 
+  mutate(Barrio = str_replace_all(Barrio, "LA PATERNAL", "PATERNAL"),
+         Barrio = str_replace_all(Barrio, "LA BOCA", "BOCA"))
+
+
+# Ahora ya podemos unir ambas bases
+datos_ <- left_join (datos_ok2, barrios, by=c("Barrio"= "BARRIO"))
+
+
+
+
+# Comenzaremos a graficar
+
 # Si bien en el TP Nº2 habiamos realizado una corrección y limpieza de datos para dejar el csv lo mas limpia posible, ahora haremos unas breves modificaciones
 # Eliminaremos una columna que no brinda información relevante para el TP y renombraremos de manera mas práctica 3 columnas
-datos_00 <-datos %>%
+datos_00 <-datos_ %>%
   select( -X) %>% 
   rename("CasosTotal"=Casosconfirmados, "PCTFormal" = PCT_CiudadFormal, "PCTInformal" = PCT_CiudadInformal)
 
@@ -45,13 +76,13 @@ ggplot(datos_00)+
   labs(title ="Casos Covid19 x Barrio", subtitle="CABA", x="NºPoblacion", y="Nº de Casos",  caption= "Fuente: Wikipedia")+
   theme_classic()
 
-
 # Ahora queremos ver puntualmente como es la relación entre la cantidad de casos positivos en la ciudad informal y los positivos de la ciudad formal 
 ggplot(data=datos_00, aes(x = CasosCInformal, y = CasosCFormal))+
   geom_label(aes(label = factor(Barrio)),size=3, color="seashell4")+
   geom_point(aes(color=Barrio, size=PCTInformal), alpha=0.5)+
   labs(title ="Casos Covid19 - Relación Ciudad Formal/Ciudad Informal Barrio", subtitle="CABA", x="Casos Ciudad Informal", y="Casos Ciudad Formal",  caption= "Fuente: Wikipedia")+
   theme_classic()
+
 
 # Para verlo mas claro vamos a realizar un facetado por cada barrio
 ggplot(datos_00)+
@@ -103,4 +134,35 @@ ggplot(datos_02)+
   geom_bar(aes(x=reorder(Barrio, -PCTInformal), weight = PCTInformal, fill= Barrio))+
   labs(title ="% Casos Covid 19 en la Ciudad Informal", subtitle="CABA", x="Barrio", y="% de positivos en villas",  caption= "Fuente: Wikipedia")+
   coord_flip() #Giramos los ejes para poder visualizar y leer mejor los barrios.
+
+
+# Ahora queremos ver la informacion volcada en mapas
+# Para esto trabajaremos con informacion geograficca obtenida en la base de datos de los barrios 
+
+ggplot(datos_)+
+  geom_sf(aes(fill=Casosconfirmados), size=0.2)
+
+# Armamos la caja de coordenadas para descargar un mapa
+
+
+bbox_CABA <- getbb("CABA, Buenos Aires")
+
+#Ahora descarguemos el mapa de fondo a partir de get_stamenmap():
+mapa <- get_stamenmap(bbox = bbox_CABA,
+                            maptype = "toner-lite",
+                            zoom=12)
+
+# Lo visualizamos
+ggmap(mapa)+
+  labs(title="CABA",
+       caption="Fuente: get_stamenmap ")
+
+
+ggmap(mapa)+
+  geom_point(data=datos_, aes(color= Casosconfirmados), alpha=0.5)+
+  labs(title = "Estaciones para carga de autos electricos X Estado",
+       subtitle = "Mes de julio",
+       color = "Estado",
+       caption = "Imagen: 5
+         Fuente: Open Data Paris")
 
