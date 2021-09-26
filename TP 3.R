@@ -1,4 +1,4 @@
-# Trabajo Practico Nº3 -  Representación grafica de datos
+# Trabajo Práctico Nº3 -  Representación gráfica de datos
 
 
 # Primero vamos a cargar las librerias necesarias para realizar el trabajo. En primer lugar vamos a cargars tidyverse y luego para este caso puntual sera necesario que instalaemos y carguemos rvest.
@@ -39,7 +39,6 @@ datos_00 <-datos %>%
 
 
 # En el primer gráfico queremos ver como es la relación entre la población del barrio y los casos de Covid
-
 ggplot(datos_00)+
   geom_label(aes(x = Población, y = CasosTotal, label = factor(Barrio)),size=3, color="mediumorchid2")+
   geom_point(aes(x = Población, y = CasosTotal, size = CasosCInformal), alpha= 0.25)+ #Agregamos el punto para facilitar la lectura, y aprovechamos para referenciar con su tamaño el numero de casos en las villas y asentamientos de cada barrio
